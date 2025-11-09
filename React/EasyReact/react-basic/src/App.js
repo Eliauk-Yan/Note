@@ -1,22 +1,16 @@
-// 导入样式
-import './index.css'
+// 1. 组件外使用
+import {useState} from "react";
 
-const style = {
-    color: 'red',
-    fontSize: '50px',
-}
+const [value, setValue] = useState()
+
 
 function App() {
+
     return (
         <div className="App">
-           {/*行内样式控制两种方式*/}
-            <span style={{color:'red', fontSize:'50px'}}>This is span</span>
-            <br/>
-            <span style={style}>This is span</span>
-            {/*通过class类名控制*/}
-            <span className="foo">This is class foo</span>
+            this is APP
         </div>
-    );
+    )
 }
 
 export default App;
