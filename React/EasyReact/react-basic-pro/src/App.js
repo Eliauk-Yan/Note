@@ -1,10 +1,11 @@
 import './App.scss'
 import avatar from './images/bozai.png'
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import _ from "lodash";
 import classNames from "classnames";
 import {v4 as uuidV4} from 'uuid'
 import dayjs from "dayjs";
+import axios from "axios";
 
 /**
  * 评论列表的渲染和操作
@@ -12,47 +13,6 @@ import dayjs from "dayjs";
  * 1. 根据状态渲染评论列表
  * 2. 删除评论
  */
-
-// 评论列表数据
-const list = [
-    {
-        // 评论id
-        rpid: 3,
-        // 用户信息
-        user: {
-            uid: '13258165',
-            avatar: '',
-            uname: '周杰伦',
-        },
-        // 评论内容
-        content: '哎哟，不错哦',
-        // 评论时间
-        ctime: '10-18 08:15',
-        like: 8126,
-    },
-    {
-        rpid: 2,
-        user: {
-            uid: '36080105',
-            avatar: '',
-            uname: '许嵩',
-        },
-        content: '我寻你千百度 日出到迟暮',
-        ctime: '11-13 11:29',
-        like: 88,
-    },
-    {
-        rpid: 1,
-        user: {
-            uid: '30009257',
-            avatar,
-            uname: '黑马前端',
-        },
-        content: '学前端就来黑马',
-        ctime: '10-19 09:00',
-        like: 66,
-    },
-]
 // 当前登录用户信息
 const user = {
     // 用户id
@@ -81,7 +41,20 @@ const App = () => {
 
     // 渲染我们的评论列表
     // 1. 使用useState维护list
-    const [commentList, setCommentList] = useState(_.orderBy(list, 'like', 'desc'))
+    // const [commentList, setCommentList] = useState(_.orderBy(list, 'like', 'desc'))
+    // 获取接口数据
+    const [commentList, setCommentList] = useState([])
+
+    useEffect(() => {
+        const getList = async () => {
+            // axios 请求数据
+            const res = await axios.get('http://localhost:3004/list')
+            setCommentList(res.data)
+        }
+
+        getList().then()
+
+    }, []);
 
     const [type, setType] = useState(tabs)
 
