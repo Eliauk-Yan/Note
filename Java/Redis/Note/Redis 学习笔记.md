@@ -1487,9 +1487,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 > 满足在分布式系统或集群模式下多进程可见并且互斥的锁。
 
-1. 必须特性
+1. 必要特性
    - 多进程可见、互斥、高可用、高性能、安全性...
-2. 分布式锁的方案
+2. 实现方案
    - 分布式锁的核心是实现多进程之间的互斥，常见实现方法有三种：
 
 |        |           Mysql            |                      Redis                       |            Zookeeper             |
@@ -1499,13 +1499,229 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 | 高性能 |            一般            |                        好                        |    一般（强一致性，数据同步）    |
 | 安全性 |    断开连接，自动释放锁    | 服务宕机，无法释放锁，利用key过期机制，到期释放  |      临时节点，断开自动释放      |
 
+3. 工作原理
 
+<img src="images/image-20251118174747322.png" alt="image-20251118174747322" style="zoom:50%;" />
 
-#### 6.3.6 Redis优化秒杀
+4. 代码实现
+   - 实现分布式锁需要实现的两个基本方法
+     - 获取锁
+     - 释放锁
+   - 问题
+     - 如果获取锁后没有释放锁服务器宕机（添加锁过期时间，避免服务宕机后引起的死锁）
 
+<img src="images/image-20251118175855628.png" alt="image-20251118175855628" style="zoom:50%;" />
 
+```java
+/**
+ * @Classname SimpleRedisLock
+ * @Description Redis分布式锁
+ * @Date 2025/11/18 19:28
+ * @Created by YanShijie
+ */
+@Component
+public class SimpleRedisLock implements ILock {
 
-#### 6.3.7 Redis消息队列实现异步秒杀
+    private static final String KEY_PREFIX = "lock:";
+
+    private final StringRedisTemplate stringRedisTemplate;
+
+    private final String name;
+
+    public SimpleRedisLock(StringRedisTemplate stringRedisTemplate, String name) {
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.name = name;
+    }
+
+    @Override
+    public boolean tryLock(long timeoutSec) {
+        // 获取线程标识
+        long id = Thread.currentThread().getId();
+        // 自动拆箱 有空指针危险
+        return Boolean.TRUE.equals(stringRedisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + name, id + "", timeoutSec, TimeUnit.SECONDS));
+    }
+
+    @Override
+    public void unlock() {
+        // 释放锁
+        stringRedisTemplate.delete(KEY_PREFIX + name);
+    }
+}
+```
+
+```java
+@Override
+public Result seckillVoucher(Long voucherId) {
+    // 1. 查询优惠卷
+    SeckillVoucher seckillVoucher = iSeckillVoucherService.getById(voucherId);
+    // 2. 判断是否开始
+    if (seckillVoucher.getBeginTime().isAfter(LocalDateTime.now())) {
+        return Result.fail("秒杀尚未开始");
+    }
+    // 3. 判断是否已经结束
+    if (seckillVoucher.getEndTime().isBefore(LocalDateTime.now())) {
+        return Result.fail("秒杀已结束");
+    }
+    // 4. 判断库存是否充足
+    if (seckillVoucher.getStock() < 1) {
+        return Result.fail("库存不足");
+    }
+
+    Long userId = UserHolder.getUser().getId();
+    // 注意String对象地址不一样所以要用intern从字符串常量池找相同值的对象地址来加锁
+    SimpleRedisLock lock = new SimpleRedisLock(stringRedisTemplate, "order:" + userId);
+    boolean isLock = lock.tryLock(1200);
+    if (!isLock) {
+        // 获取锁失败 返回错误信息 要不就重试
+        return Result.fail("不允许重复下单");
+
+    }
+    try {
+        // 自我调用事务失效
+        // 获取代理对象（事务） 避免自我调用事务失效
+        IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+        return proxy.createVoucherOrder(voucherId);
+    } catch (IllegalStateException e) {
+        throw new RuntimeException(e);
+    } finally {
+        // 释放锁
+        lock.unlock();
+    }
+}
+```
+
+#### 6.3.6 锁误删问题
+
+<img src="images/image-20251118200022094.png" alt="image-20251118200022094" style="zoom:50%;" />
+
+1. 解决方案
+   - 在获取锁的时候存入线程标识（可以用UUID）。
+   - 在释放锁的时候先获取锁中的线程标识、判断是否与当前线程一致。
+     - 如果一致则释放锁
+     - 不一致则不释放
+
+<img src="images/image-20251118200102544.png" alt="image-20251118200102544" style="zoom:50%;" />
+
+```java
+
+/**
+ * @Classname SimpleRedisLock
+ * @Description Redis分布式锁
+ * @Date 2025/11/18 19:28
+ * @Created by YanShijie
+ */
+public class SimpleRedisLock implements ILock {
+
+    private static final String KEY_PREFIX = "lock:";
+
+    private static final String ID_PREFIX = UUID.randomUUID().toString() + "-";
+
+    private final StringRedisTemplate stringRedisTemplate;
+
+    private final String name;
+
+    public SimpleRedisLock(StringRedisTemplate stringRedisTemplate, String name) {
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.name = name;
+    }
+
+    @Override
+    public boolean tryLock(long timeoutSec) {
+        // 获取线程标识
+        String threadId = ID_PREFIX + Thread.currentThread().getId();
+        // 自动拆箱 有空指针危险
+        return Boolean.TRUE.equals(stringRedisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + name, threadId, timeoutSec, TimeUnit.SECONDS));
+    }
+
+    @Override
+    public void unlock() {
+        // 获取线程标识
+        String threadId = ID_PREFIX + Thread.currentThread().getId();
+        // 获取锁中的标识
+        String id = stringRedisTemplate.opsForValue().get(KEY_PREFIX + name);
+        // 判断标识是否一致
+        if (threadId.equals(id)) {
+            // 释放锁
+            stringRedisTemplate.delete(KEY_PREFIX + name);
+        }
+    }
+}
+```
+
+#### 6.3.7 原子性问题
+
+> 可能判断完锁标识的时候JVM内部阻塞了导致**锁超时释放**，从而导致并发问题。归根结底是因为**获取标识**和**释放锁**是两个动作。
+>
+> 所以解决方法就是将获取标识与释放锁改为原子性的操作。就是一起操作不能出现间隔。
+
+<img src="images/image-20251118201836593.png" alt="image-20251118201836593" style="zoom:50%;" />
+
+#### 6.4.8 Lua脚本
+
+> 解决原子性问题
+>
+> Redis提供了Lua脚本功能，在一个脚本中编写多条Redis命令，确保多条命令执行的原子性。
+
+```lua
+-- 获取锁中的线程标识
+local id = redis.call('get', KEYS[1])
+-- 比较线程标识与锁中的标识是否一致
+if (id == ARGV[1]) then
+    -- 释放锁 del key
+    return redis.call('del', KEYS[1])
+end
+return 0
+```
+
+1. Java 执行脚本
+
+```java
+public class SimpleRedisLock implements ILock {
+
+    private final StringRedisTemplate stringRedisTemplate;
+
+    private final String name;
+
+    public SimpleRedisLock(StringRedisTemplate stringRedisTemplate, String name) {
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.name = name;
+    }
+
+    private static final String KEY_PREFIX = "lock:";
+
+    private static final String ID_PREFIX = UUID.randomUUID().toString() + "-";
+
+    /*
+     * 泛型是脚本返回值
+     */
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
+
+    static {
+        UNLOCK_SCRIPT = new DefaultRedisScript<>();
+        // 配置脚本路径
+        UNLOCK_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
+        // 配置返回值值类型
+        UNLOCK_SCRIPT.setResultType(Long.class);
+    }
+
+    @Override
+    public boolean tryLock(long timeoutSec) {
+        // 获取线程标识
+        String threadId = ID_PREFIX + Thread.currentThread().getId();
+        // 自动拆箱 有空指针危险
+        return Boolean.TRUE.equals(stringRedisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + name, threadId, timeoutSec, TimeUnit.SECONDS));
+    }
+
+    @Override
+    public void unlock() {
+        // 调用 Lua脚本
+        stringRedisTemplate.execute(UNLOCK_SCRIPT, Collections.singletonList(KEY_PREFIX + name), ID_PREFIX + Thread.currentThread().getId());
+    }
+}
+
+```
+
+#### 6.4.9 Redission
 
 
 

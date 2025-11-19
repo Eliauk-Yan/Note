@@ -1176,3 +1176,398 @@ export default App;
 npm i react-router-dom
 ```
 
+2. 基本使用
+
+```jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import reportWebVitals from './reportWebVitals';
+import {createBrowserRouter, RouterProvider} from 'react-router-dom'
+
+// 1. 创建router实例对象并配置路由对应关系
+const router = createBrowserRouter([
+    {
+        path: '/login',
+        element: <div>我是登录页</div>
+    },
+    {
+        path: '/article',
+        element: <div>我是文章页</div>
+    }
+])
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <RouterProvider router={router}>
+
+    </RouterProvider>
+  </React.StrictMode>
+);
+
+reportWebVitals();
+```
+
+### 16.2 抽象路由模块
+
+1. 写组件
+
+```jsx
+const Article = () => {
+    return <div>我是文章</div>
+}
+
+export default Article;
+```
+
+```jsx
+const Login = () => {
+    return <div>我是登录</div>
+}
+
+export default Login;
+```
+
+2. 配置`router`
+
+```jsx
+import Login from '../pages/Login';
+import Article from '../pages/Article';
+
+import {createBrowserRouter} from "react-router-dom";
+
+const router = createBrowserRouter([
+    {
+        path: "/login",
+        element: <Login />,
+    },
+    {
+        path: "/articles",
+        element: <Article />,
+    }
+])
+
+export default router
+```
+
+3. 注入`router`实例
+
+```jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import reportWebVitals from './reportWebVitals';
+import {createBrowserRouter, RouterProvider} from 'react-router-dom'
+
+// 1. 导入路由router
+import router from './router';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <RouterProvider router={router}></RouterProvider>
+  </React.StrictMode>
+);
+
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();
+```
+
+### 16.3 路由导航跳转
+
+> 路由系统中的多个路由之间进行**路由跳转**，并且在跳转的同时有可能需要**传递参数进行通信**
+
+#### 16.3.1 声明式导航
+
+```jsx
+import {Link} from 'react-router-dom'
+
+const Login = () => {
+    return (
+        <div>
+            我是登录页
+            <Link to="/article">跳转到文章页</Link>
+        </div>
+    )
+}
+
+export default Login;
+```
+
+#### 16.3.2 编程式导航
+
+```jsx
+import {useNavigate} from 'react-router-dom';
+
+const Login = () => {
+    const navigate = useNavigate();
+    return (
+        <div>
+            我是登录页
+            <button onClick={() => navigate('/article')}>跳转文章</button>
+        </div>
+    )
+}
+
+export default Login;
+```
+
+### 16.4 导航传参
+
+#### 16.4.1 searchParams传参
+
+```jsx
+import {useNavigate} from 'react-router-dom';
+
+const Login = () => {
+    const navigate = useNavigate();
+    return (
+        <div>
+            我是登录页
+            <button onClick={() => navigate('/article')}>跳转文章</button>
+            <button onClick={() => navigate('/article?id=1001&name=jack')}>searchParam传参</button>
+        </div>
+    )
+}
+
+export default Login;
+```
+
+```jsx
+import {useSearchParams} from "react-router-dom";
+
+const Article = () => {
+    const [params] = useSearchParams()
+    const id = params.get('id')
+    const name = params.get('name')
+    return <div>我是文章{id},{name}</div>
+}
+
+export default Article;
+```
+
+#### 16.4.2 params传参
+
+```jsx
+import {useNavigate} from 'react-router-dom';
+
+const Login = () => {
+    const navigate = useNavigate();
+    return (
+        <div>
+            我是登录页
+            <button onClick={() => navigate('/article')}>跳转文章</button>
+            <button onClick={() => navigate('/article?id=1001&name=jack')}>searchParam传参</button>
+            <button onClick={() => navigate('/article/1001')}>params传参</button>
+        </div>
+    )
+}
+
+export default Login;
+```
+
+```jsx
+import Login from '../pages/Login';
+import Article from '../pages/Article';
+
+import {createBrowserRouter} from "react-router-dom";
+
+const router = createBrowserRouter([
+    {
+        path: "/login",
+        element: <Login />,
+    },
+    {
+        path: "/article/:id",
+        element: <Article />,
+    }
+])
+
+export default router
+
+```
+
+```jsx
+import {useParams, useSearchParams} from "react-router-dom";
+
+const Article = () => {
+    const params = useParams()
+    const id = params.id
+    return <div>我是文章{id}</div>
+}
+
+export default Article;
+```
+
+### 16.5 嵌套路由配置
+
+1. 实现步骤
+   - 使用`children`属性配置路由的嵌套关系
+   - 使用`<Outlet/>`组件配置二级路由的渲染位置
+
+```jsx
+import {createBrowserRouter} from "react-router-dom";
+
+import Login from '../pages/Login';
+import Article from '../pages/Article';
+import Layout from "../pages/Layout";
+import Board from "../pages/Board";
+import About from "../pages/About";
+
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: Layout,
+        children: [
+            {
+                path: "/board",
+                element: Board,
+            },
+            {
+                path: "/about",
+                element: About,
+            }
+        ]
+    },
+    {
+        path: "/login",
+        element: <Login/>,
+    },
+    {
+        path: "/article/:id",
+        element: <Article/>,
+    }
+])
+
+export default router
+```
+
+```jsx
+import {Link, Outlet} from "react-router-dom";
+
+const Layout = () => {
+    return (
+        <div>
+            我是一级路由layout组件
+            <Link to="/board">面板</Link>
+            <Link to="about">关于</Link>
+            {/*二级路由出口*/}
+            <Outlet/>
+        </div>
+    )
+}
+
+export default Layout
+```
+
+### 16.6 默认二级路由
+
+> 当访问一级路由时，默认的二级路由也可以渲染。
+
+```jsx
+import {createBrowserRouter} from "react-router-dom";
+
+import Login from '../pages/Login';
+import Article from '../pages/Article';
+import Layout from "../pages/Layout";
+import Board from "../pages/Board";
+import About from "../pages/About";
+
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <Layout/>,
+        children: [
+            {
+                // path: "/board", 设置默认二级路由
+                index: true,
+                element: <Board/>,
+            },
+            {
+                path: "/about",
+                element: <About/>,
+            }
+        ]
+    }
+])
+
+export default router
+```
+
+### 16.7 404路由配置
+
+1. 实现步骤
+   - 准备一个NotFound库。
+   - 在路由表数组的末尾，以*号作为路由path配置路由。
+
+```jsx
+const NotFound = () => {
+    return (
+        <div>页面跑到月球了</div>
+    )
+}
+export default NotFound
+```
+
+```jsx
+import {createBrowserRouter} from "react-router-dom";
+
+import Login from '../pages/Login';
+import Article from '../pages/Article';
+import Layout from "../pages/Layout";
+import Board from "../pages/Board";
+import About from "../pages/About";
+import NotFound from "../pages/NotFound";
+
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <Layout/>,
+        children: [
+            {
+                // path: "/board",
+                index: true,
+                element: <Board/>,
+            },
+            {
+                path: "/about",
+                element: <About/>,
+            }
+        ]
+    },
+    {
+        path: "/login",
+        element: <Login/>,
+    },
+    {
+        path: "/article/:id",
+        element: <Article/>,
+    },
+    {
+        path: "*",
+        element: <NotFound/>,
+    }
+])
+
+export default router
+```
+
+### 16.8 两种路由模式
+
+> 各个主流框架的路由常用的路由模式有两种，`history模式`和`hash模式`，ReactRouter分别由`createBrowerRouter`和`createHashRouter函数`负责创建。
+
+| 路由模式 |   url表现   |          底层原理           | 是否需要后端支持 |
+| :------: | :---------: | :-------------------------: | :--------------: |
+| history  |  url/login  | history对象 + pushState事件 |       需要       |
+|   hash   | url/#/login |     监听 hashChange事件     |      不需要      |
+
+#### 16.8.1 history模式
+
+​	上方都是示例都是`history`模式
+
+#### 16.8.2 hash模式
+
+​	将createHistoryRouter改为createHashRouter即可
