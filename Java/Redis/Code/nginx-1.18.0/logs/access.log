@@ -16123,3 +16123,6 @@
 127.0.0.1 - - [26/Nov/2025:13:11:11 +0800] "POST /api/voucher-order/seckill/12 HTTP/1.1" 200 60 "-" "Apifox/1.0.0 (https://apifox.com)"
 127.0.0.1 - - [26/Nov/2025:13:11:13 +0800] "POST /api/voucher-order/seckill/12 HTTP/1.1" 200 60 "-" "Apifox/1.0.0 (https://apifox.com)"
 127.0.0.1 - - [26/Nov/2025:13:11:15 +0800] "POST /api/voucher-order/seckill/12 HTTP/1.1" 200 60 "-" "Apifox/1.0.0 (https://apifox.com)"
+127.0.0.1 - - [26/Nov/2025:19:33:15 +0800] "POST /api/voucher-order/seckill/13 HTTP/1.1" 200 53 "-" "Apifox/1.0.0 (https://apifox.com)"
+127.0.0.1 - - [26/Nov/2025:19:33:19 +0800] "POST /api/voucher-order/seckill/13 HTTP/1.1" 200 60 "-" "Apifox/1.0.0 (https://apifox.com)"
+127.0.0.1 - - [26/Nov/2025:19:33:20 +0800] "POST /api/voucher-order/seckill/13 HTTP/1.1" 200 60 "-" "Apifox/1.0.0 (https://apifox.com)"
