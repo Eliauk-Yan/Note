@@ -130,4 +130,127 @@ Author：Shijie Yan
 2. InnoDB主键索引的B+Tree高度为多高呢？
    - 假设一行数据大小为1k，一页中可以存储16行这样的数据。InnoDB的指针占用6个字节的空间，主键即使为bigint，占用字节数为8。
 
-<img src="images/image-20251209225816697.png" alt="image-20251209225816697" style="zoom: 33%;" />
+<img src="images/image-20251209225816697.png" alt="image-20251209225816697" style="zoom: 33%;" /gg
+
+## 4. Index grammar
+
+```sql
+# region 数据初始化
+CREATE TABLE tb_user
+(
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    name        VARCHAR(64),
+    phone       VARCHAR(64),
+    email       VARCHAR(128),
+    profession  VARCHAR(128),
+    age         INT,
+    gender      INT,
+    status      INT,
+    create_time DATETIME DEFAULT NOW()
+) COMMENT '用户表';
+
+# 查看当前表的索引
+show index from tb_user;
+
+# 为name字段创建普通索引
+create index idx_user_name on tb_user(name);
+
+# 为phone字段创建唯一索引
+create unique index idx_user_phone on tb_user(phone);
+
+# 为profession ,age, status 创建联合索引
+create index idx_user_pro_age_sta on tb_user(profession, age, status);
+
+# 为email创建索引提升查询效率
+create index idx_user_email on tb_user(email);
+
+# 删除索引
+drop index idx_user_email on tb_user;
+```
+
+![image-20251211215815198](images/image-20251211215815198.png)
+
+## 5. SQL Performance Analysis
+
+### 5.1 SQL执行频率
+
+> 通过`show [session | global] status`命令可以提供服务器状态信息。通过如下指令，可以查看当前数据库的`INSERT、UPDATE、DELETE、SELECT`的访问频次
+
+```sql
+# 查看 SQL执行频率
+show global status like 'Com_______';
+```
+
+<img src="images/image-20251211215956480.png" alt="image-20251211215956480" style="zoom:33%;" />
+
+### 5.2 慢查询日志
+
+> 记录所有执行时间超过指定参数（long_query_time，单位：秒，默认10秒）的所有SQL语句的日志，MySQL的慢查询日志默认没有开启，需要在MySQL的配置文件（`/etc/my.cnf`）中配置如下信息。
+
+```sql
+# 查看 慢查询日志开启状态
+show variables like 'slow_query_log';  # OFF
+```
+
+```shell
+# 开启MySQL慢查询日志开关
+slow_query_log=1
+
+# 设置慢查询日志时间为2秒，SQL语句执行时间超过2秒，就会视为慢查询
+long_query_time=2
+
+# 修改完配置文件,重启服务
+systemctl restart mysqld
+```
+
+```sql
+# 查看 慢查询日志开启状态
+show variables like 'slow_query_log';  # ON
+```
+
+```shell
+# 打开慢查询日志会在/var/lib/mysql下创建localhost-slow.log（初始状态）超过配置的2秒会记录日志
+/usr/sbin/mysqld, Version: 8.4.7 (MySQL Community Server - GPL). started with:
+Tcp port: 3306  Unix socket: /var/lib/mysql/mysql.sock
+Time                 Id Command    Argument
+```
+
+```shell
+# 生成日志举例
+# Time: 181230 17:50:35
+# User@Host: root[root] @ localhost [127.0.0.1]
+# Query_time: 136.500000  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1314697835;
+SELECT BENCHMARK(100000000, PASSWORD('newpwd'));
+```
+
+### 5.3 profile详情
+
+> show profiles 能够在做 sql优化时帮助我们了解时间都耗费到哪里去了。通过have_profiling参数，能够看到当前MySQL是否支持profile操作。
+
+```sql
+# 查看 当前数据库书否支持是否支持profile操作
+select @@have_profiling; # YES
+```
+
+```sql
+# 查看 是否开启profile操作
+select @@profiling; # 0（没有开启）
+```
+
+```sql
+# 设置为1打开profile
+set profiling = 1;
+```
+
+```sql
+# 测试指令
+select *
+from tb_user
+where id = 1;
+# 查看 profile（指令耗时情况）
+show profiles; 
+# 在各个阶段的耗时情况
+show profile cpu for query 221;
+```
+
