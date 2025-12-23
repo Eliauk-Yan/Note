@@ -1,27 +1,27 @@
-# MySQL Index
+# MySQL 索引
 
 Author：Shijie Yan
 
 ---
 
-## 1. Overview
+## 1. 概述
 
-### 1.1 Introduction
+### 1.1 介绍
 
 ​	帮助MySQL高效获取数据的数据结构。
 
-### 1.2 Advantages and Disadvantages
+### 1.2 优缺点
 
 |                          Advantage                          |                         DIsadvantage                         |
 | :---------------------------------------------------------: | :----------------------------------------------------------: |
 |               提高数据检索的效率，降低IO成本                |                       索引列也要占空间                       |
 | 通过索引列对数据进行排序，降低数据排序的成本，降低CPU的消耗 | 提高查询效率的同时，降低了更新表的速度，对表进行INSERT、UPDATE、DELETE时效率降低。 |
 
-## 2. Index Structure
+## 2. 索引结构
 
 > MySQL 的索引是在存储引擎实现的，不同的存储引擎有不同的结构，主要包含以下几种。
 
-### 2.1 Category
+### 2.1 分类
 
 |    Index Structure    |                         Description                          |
 | :-------------------: | :----------------------------------------------------------: |
@@ -30,7 +30,7 @@ Author：Shijie Yan
 |  R-Tree（空间索引）   | 空间索引是MyISAM引擎的一个特殊索引类型，主要用于地理空间数据类型，通常使用较少 |
 | Full-text（全文索引） |      是一种通过建立倒排序，快速匹配文档的方式。类似于ES      |
 
-### 2.2 Support Status
+### 2.2 支持情况
 
 > 如果没有特别指明，默认都是B+树结构组织的索引。
 
@@ -41,9 +41,9 @@ Author：Shijie Yan
 | R-Tree Index |         ❌         |   ✔️    |   ❌    |
 | Full-text I  | **5.6版本后支持** |   ✔️    |   ❌    |
 
-### 2.3 Data Structure
+### 2.3 数据结构
 
-#### 2.3.1 B+Tree Index
+#### 2.3.1 B+树 索引
 
 1. Binary Tree Or Red-Black Tree
 
@@ -90,9 +90,9 @@ Author：Shijie Yan
    - 对于B-Tree，无论是叶子节点还是非叶子节点，都会保存数据，这样导致一页中存储的键值减少，要保存同样大小的数据，只能增加树的高度，导致性能降低。
    - 对于Hash索引，B+Tree支持范围匹配以及排序操作。
 
-## 3. Index Category
+## 3. 索引分类
 
-### 3.1 Introduction
+### 3.1 介绍
 
 | Category |                     Description                      |    Characteristics     | keyword  |
 | :------: | :--------------------------------------------------: | :--------------------: | :------: |
@@ -114,13 +114,13 @@ Author：Shijie Yan
  - 如果不存在主键，将使用第一个唯一索引（UNIQUE）作为聚集索引。
  - 如果表没有主键，或没有合适的唯一索引，则InnoDB会自动生成一个rowid作为隐藏的聚集索引。
 
-### 3.2 Example
+### 3.2 举例
 
 ![image-20251209224832945](images/image-20251209224832945.png)
 
 ![image-20251209224901635](images/image-20251209224901635.png)
 
-### 3.3 Thinking
+### 3.3 思考题
 
 <img src="images/image-20251209225132002.png" alt="image-20251209225132002" style="zoom:33%;" />
 
@@ -132,7 +132,7 @@ Author：Shijie Yan
 
 <img src="images/image-20251209225816697.png" alt="image-20251209225816697" style="zoom: 33%;" /gg
 
-## 4. Index grammar
+## 4. 索引语法
 
 ```sql
 # region 数据初始化
@@ -170,7 +170,7 @@ drop index idx_user_email on tb_user;
 
 ![image-20251211215815198](images/image-20251211215815198.png)
 
-## 5. SQL Performance Analysis
+## 5. SQL 性能分析
 
 ### 5.1 SQL执行频率
 
@@ -224,7 +224,7 @@ SET timestamp=1314697835;
 SELECT BENCHMARK(100000000, PASSWORD('newpwd'));
 ```
 
-### 5.3 profile详情
+### 5.3 Profile详情
 
 > show profiles 能够在做 sql优化时帮助我们了解时间都耗费到哪里去了。通过have_profiling参数，能够看到当前MySQL是否支持profile操作。
 
@@ -254,7 +254,7 @@ show profiles;
 show profile cpu for query 221;
 ```
 
-### 5.4 explain执行计划
+### 5.4 Explain执行计划
 
 > EXPLAIN或者DESC命令获取MySQL如何执行SELECT语句的信息，包括在SELECT语句执行过程中表如何连接和连接的顺序
 
@@ -278,3 +278,128 @@ left join tb_course on tb_student_course.course_id = tb_course.id
 ```
 
 ![image-20251215162324925](images/image-20251215162324925.png)
+
+## 6. 索引使用规则
+
+### 6.1 验证索引
+
+```sql
+select * from tb_sku where sku_code = 'SKU00979887';
+```
+
+![image-20251223161144037](images/image-20251223161144037.png)
+
+```sql
+# 创建索引
+create index idx_sku_code on tb_sku(sku_code);
+# 查看索引
+show index from tb_sku;
+# 再次验证
+select * from tb_sku where sku_code = 'SKU00979887';
+```
+
+![image-20251223161258076](images/image-20251223161258076.png)
+
+### 6.2 最左前缀法则
+
+> 如果索引了多列（联合索引），要遵循最左前缀法则。最左前缀法则指的是**查询从索引的最左列开始**，并且**不跳过索引中的列**。
+
+```sql
+explain select * from tb_user where profession = 'CEO' and age = 45 and status = 1;
+```
+
+![image-20251223161945481](images/image-20251223161945481.png)
+
+```sql
+explain select * from tb_user where profession = 'CEO' and age = 45;
+```
+
+![image-20251223162026728](images/image-20251223162026728.png)
+
+```sql
+explain select * from tb_user where profession = 'CEO';
+```
+
+![image-20251223162119273](images/image-20251223162119273.png)
+
+```sql
+explain select * from tb_user where age = 45 and status = 1;
+```
+
+![image-20251223162227977](images/image-20251223162227977.png)
+
+> **从好到坏排序：**`system` > `const` > `eq_ref` > `ref` > `range` > `index` > `ALL`
+
+```sql
+explain select * from tb_user where profession = 'CEO' and status = 1;
+```
+
+![image-20251223162944289](images/image-20251223162944289.png)
+
+```sql
+explain select * from tb_user where status = 1 and age = 45 and profession = 'CEO';
+```
+
+![image-20251223163755044](images/image-20251223163755044.png)
+
+### 6.3 范围查询
+
+> 联合索引中，出现了范围查询(>,<)，范围查询右侧的列索引失效。
+
+```sql
+explain select * from tb_user where profession = 'CEO' and age > 30 and status = 1;
+```
+
+![image-20251223164615950](images/image-20251223164615950.png)
+
+```sql
+explain select * from tb_user where profession = 'CEO' and age >= 30 and status = 1;
+```
+
+![image-20251223164844927](images/image-20251223164844927.png)
+
+### 6.4 索引列运算
+
+```sql
+explain select * from tb_user where phone = '13800000037';
+```
+
+![image-20251223165900325](images/image-20251223165900325.png)
+
+```sql
+explain select * from tb_user where substring(phone, 10, 2) = '37';
+```
+
+![image-20251223165922119](images/image-20251223165922119.png)
+
+### 6.5 字符串不加引号
+
+> 查询时字符串不加引号索引失效。
+
+```sql
+explain select * from tb_user where phone = 13800000037;
+```
+
+![image-20251223170342586](images/image-20251223170342586.png)
+
+### 6.6 头部模糊匹配
+
+> 仅尾部模糊匹配索引不会失效，如果头部模糊匹配索引会失效。
+
+```sql
+explain select * from tb_user where profession like 'C%';
+```
+
+![image-20251223174211974](images/image-20251223174211974.png)
+
+```sql
+explain select * from tb_user where profession like '%O';
+```
+
+![image-20251223174234647](images/image-20251223174234647.png)
+
+```sql
+explain select * from tb_user where profession like '%E%';
+```
+
+![image-20251223174405260](images/image-20251223174405260.png)
