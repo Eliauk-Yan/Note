@@ -405,3 +405,13 @@ app.use(router)
 app.mount('#app')
 ```
 
+## 九、集成 Pinia
+
+```shell
+pnpm install pinia
+```
+
+```cmd
+pnpm add pinia-plugin-persistedstate
+```
+
